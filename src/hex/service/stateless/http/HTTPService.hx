@@ -11,14 +11,16 @@ import hex.service.stateless.AsyncStatelessService;
  * ...
  * @author Francis Bourre
  */
-class HTTPService extends AsyncStatelessService implements IHTTPService implements IURLConfigurable implements IAnnotationParsable
+class HTTPService<ServiceConfigurationType:HTTPServiceConfiguration> extends AsyncStatelessService<ServiceConfigurationType> implements IHTTPService<ServiceConfigurationType> implements IURLConfigurable implements IAnnotationParsable
 {
+	public static var requestFactory: IHTTPRequestFactory = new HTTPRequestFactory();
+	
 	function new() 
 	{
 		super();
 	}
 	
-	var _request 			: Http;
+	var _request 			: IHTTPRequest;
 	var _excludedParameters : Array<String>;
 	var _timestamp 			: Float;
 
@@ -35,24 +37,21 @@ class HTTPService extends AsyncStatelessService implements IHTTPService implemen
 		
 		this._createRequest();
 		super.call();
-		this._request.request( ( cast this._configuration ).requestMethod == HTTPRequestMethod.POST );
+		this._request.request( ( cast this._configuration ).requestMethod );
 	}
 	
 	function _createRequest() : Void
 	{
-		this._request = new Http( ( cast this._configuration ).serviceUrl );
+		this._request = requestFactory.createRequest(
+			( cast this._configuration )._configuration.serviceUrl,
+			( cast this._configuration )._onData,
+			( cast this._configuration )._onError,
+			( cast this._configuration )._onStatus);
 		
 		( cast this._configuration ).parameterFactory.setParameters( this._request, ( cast this._configuration ).parameters, _excludedParameters );
 		this.timeoutDuration = this._configuration.serviceTimeout;
 		
-		#if js
-			this._request.async 		= true; //TODO: check with flash
-		#end
-		this._request.onData 		= this._onData;
-		this._request.onError 		= this._onError;
-		this._request.onStatus 		= this._onStatus;
-		
-		var requestHeaders : Array<HTTPRequestHeader> = ( cast this._configuration ).requestHeaders;
+		var requestHeaders : Array<HTTPRequestHeader> = ( cast this._configuration )._configuration.requestHeaders;
 		if ( requestHeaders != null )
 		{
 			for ( header in requestHeaders )
